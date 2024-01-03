@@ -1,58 +1,40 @@
-import errno
 import os
-import shutil
 import time
+from send2trash import send2trash
 
-def eliminar_archivos_temporales(tamaño_maximo):
+def eliminar_archivos_temporales(ruta_temp, tamano_limite):
+    archivos_eliminados = []
+    archivos_no_eliminados = []
+
     try:
-        carpeta_temporal = os.environ.get('TEMP') or os.environ.get('TMP') or '/tmp'
-
-        archivos_temporales = []
-
-        # Obtener la lista de archivos en la carpeta temporal
-        for archivo in os.listdir(carpeta_temporal):
-            ruta_completa = os.path.join(carpeta_temporal, archivo)
-
-            try:
-                # Verificar si es un archivo temporal basado en criterios (ajusta según tus necesidades)
-                if os.path.isfile(ruta_completa) and os.path.getsize(ruta_completa) < tamaño_maximo:
-                    archivos_temporales.append(ruta_completa)
-            except Exception as e:
-                print(f"Error al verificar el archivo {ruta_completa}: {str(e)}")
-
-        # Eliminar los archivos temporales identificados
-        for archivo_temporal in archivos_temporales:
-            try:
-                os.remove(archivo_temporal)
-                print(f"Eliminado: {archivo_temporal}")
-            except OSError as e:
-                # Omitir el archivo si se encuentra en uso
-                if e.errno == errno.EACCES or e.errno == errno.EBUSY:
-                    print(f"Omitido (en uso): {archivo_temporal}")
-                else:
-                    print(f"Error al eliminar {archivo_temporal}: {str(e)}")
-
-        # Intentar eliminar directorios (esto incluirá subdirectorios)
-        try:
-            shutil.rmtree(carpeta_temporal)
-            print(f"Eliminado directorio completo: {carpeta_temporal}")
-        except Exception as e:
-            print(f"Error al eliminar directorio: {str(e)}")
-
+        for archivo in os.listdir(ruta_temp):
+            ruta_archivo = os.path.join(ruta_temp, archivo)
+            if os.path.isfile(ruta_archivo) and os.path.getsize(ruta_archivo) > tamano_limite:
+                time.sleep(1)  # Espera 1 segundo antes de enviar a la papelera
+                try:
+                    ruta_archivo_normalizada = os.path.normpath(ruta_archivo)
+                    send2trash(ruta_archivo_normalizada)
+                    print(f"Se movió a la papelera el archivo: {ruta_archivo_normalizada}")
+                    archivos_eliminados.append(archivo)
+                except Exception as e:
+                    print(f"No se pudo enviar a la papelera el archivo {ruta_archivo}. Error: {e}")
+                    archivos_no_eliminados.append(archivo)
     except Exception as e:
-        print(f"Error al eliminar archivos temporales: {str(e)}")
+        print(f"Ocurrió un error: {e}")
 
-def programar_eliminacion_programada(tamaño_maximo, intervalo_tiempo):
-    while True:
-        # Llamar a la función para eliminar archivos temporales
-        eliminar_archivos_temporales(tamaño_maximo)
+    print("\nArchivos movidos a la papelera:")
+    for archivo in archivos_eliminados:
+        print(archivo)
 
-        # Esperar el intervalo de tiempo antes de la próxima ejecución
-        time.sleep(intervalo_tiempo)
+    print("\nArchivos no movidos a la papelera:")
+    for archivo in archivos_no_eliminados:
+        print(archivo)
 
-# Configuración
-tamaño_maximo_archivo = 77 # Tamaño máximo en kilobytes (ajusta según tus necesidades)
-intervalo_tiempo_eliminar = 3600 # Intervalo de tiempo en segundos (ajusta según tus necesidades)
+    print(f"\nTotal de archivos movidos a la papelera: {len(archivos_eliminados)}")
+    print(f"Total de archivos no movidos a la papelera: {len(archivos_no_eliminados)}")
 
-# Llamar a la función para la eliminación programada
-programar_eliminacion_programada(tamaño_maximo_archivo, intervalo_tiempo_eliminar)
+if _name_ == "_main_":
+    carpeta_temp = input("Ingresa la ruta de tu carpeta temp (presiona Enter para usar la carpeta por defecto): ") or "C:/Users/juanm/AppData/Local/Temp"
+    tamano_limite = int(input("Ingresa el tamaño límite para eliminar archivos (en bytes): ") or 74000)
+
+    eliminar_archivos_temporales(carpeta_temp, tamano_limite)
